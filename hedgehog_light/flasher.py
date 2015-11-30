@@ -16,6 +16,22 @@ _CONF = {
 }
 
 
+def _checksum(data):
+    checksum = 0
+    for byte in data:
+        checksum ^= byte
+    return checksum
+
+
+def _with_checksum(data):
+    return data + bytes([_checksum(data)])
+
+
+def _encode_address(addr):
+    data = bytes([(addr >> i) & 0xFF for i in reversed(range(0, 32, 8))])
+    return _with_checksum(data)
+
+
 class FlasherException(Exception):
     pass
 
@@ -51,27 +67,10 @@ class _FlasherSerial:
                 raise FlasherException("Unknown response: 0x%02X - %s" % (ack, msg))
 
     def cmd(self, cmd, msg=None):
-        self.write_byte(cmd)
-        self.write_byte(cmd ^ 0xFF)
+        self.write(_with_checksum(bytes([cmd])))
         if msg is None:
             msg = "0x%02X" % (cmd,)
         self.await_ack("cmd %s" % (msg,))
-
-
-def _checksum(data):
-    checksum = 0
-    for byte in data:
-        checksum ^= byte
-    return checksum
-
-
-def _with_checksum(data):
-    return data + bytes([_checksum(data)])
-
-
-def _encode_address(addr):
-    data = bytes([(addr >> i) & 0xFF for i in reversed(range(0, 32, 8))])
-    return _with_checksum(data)
 
 
 class Flasher:
