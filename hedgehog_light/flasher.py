@@ -58,15 +58,20 @@ class _FlasherSerial:
         self.await_ack("cmd %s" % (msg,))
 
 
-def _with_checksum(data):
+def _checksum(data):
     checksum = 0
     for byte in data:
         checksum ^= byte
-    return bytes(data) + bytes([checksum])
+    return checksum
+
+
+def _with_checksum(data):
+    return data + bytes([_checksum(data)])
 
 
 def _encode_address(addr):
-    return _with_checksum([(addr >> i) & 0xFF for i in reversed(range(0, 32, 8))])
+    data = bytes([(addr >> i) & 0xFF for i in reversed(range(0, 32, 8))])
+    return _with_checksum(data)
 
 
 class Flasher:
