@@ -141,7 +141,7 @@ class Flasher:
         self._serial.write(_encode_address(addr))
         self._serial.await_ack("write_memory: address")
         self._serial.write(_with_checksum(bytes([length - 1]) + data))
-        self._serial.await_ack("end get_id")
+        self._serial.await_ack("end write_memory")
 
     def write_memory(self, data, addr=None):
         if addr is None:
