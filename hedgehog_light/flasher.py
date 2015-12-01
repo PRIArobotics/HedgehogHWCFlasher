@@ -10,13 +10,20 @@ _CONF = {
     'write': 0,
     'verify': 0,
     'read': 0,
-    'go_addr':-1,
+    'go_addr': -1,
     'pin_reset': 'PA8',
     'pin_boot0': 'PA7'
 }
 
 
 def _checksum(data):
+    """
+    Calculates the checksum of some data bytes according to the STM32
+    bootloader USART protocol.
+
+    :param data: a `bytes` object
+    :return: the XOR of all the bytes, i.e. a number between 0x00 and 0xFF
+    """
     checksum = 0
     for byte in data:
         checksum ^= byte
@@ -24,21 +31,45 @@ def _checksum(data):
 
 
 def _with_checksum(data):
+    """
+    Appends the checksum (see _checksum) to the data and returns it.
+
+    :param data: a `bytes` object
+    :return: a new `bytes` object with the checksum appended
+    """
     return data + bytes([_checksum(data)])
 
 
 def _encode_address(addr):
+    """
+    Returns a `bytes` object consisting of the 4 byte address, MSB first,
+    followed by the address' checksum.
+
+    :param addr: The 32 bit address
+    :return: a `bytes` object consisting of 5 bytes
+    """
     data = bytes([(addr >> i) & 0xFF for i in reversed(range(0, 32, 8))])
     return _with_checksum(data)
 
 
 class FlasherException(Exception):
+    """
+    This exception is thrown when the STM32 bootloader USART protocol is not
+    followed.
+    """
     pass
 
 
 class _FlasherSerial:
-    def __init__(self, serial):
-        self.serial = serial
+    """
+    Encapsulates common functions for the STM32 bootloader USART protocol:
+    - Awaiting acknowledgement
+    - sending a command, including checksum & acknowledgement
+    - wrappers around read & write of the underlying `Serial` object
+    """
+
+    def __init__(self, serial_):
+        self.serial = serial_
 
     def write(self, data):
         self.serial.write(data)
@@ -54,10 +85,16 @@ class _FlasherSerial:
         return None if len(result) == 0 else result[0]
 
     def await_ack(self, msg=""):
+        """
+        Returns on a successful acknowledgement, otherwise raises a
+        `FlasherException`.
+
+        :param msg: A message to be shown in raised errors
+        """
         try:
             ack = self.read_byte()
         except Exception as ex:
-            raise FlasherException("Reading `ack` failed") from ex
+            raise FlasherException("Reading `ack` failed - %s: %s" % (msg, str(ex))) from ex
         else:
             if ack is None:
                 raise FlasherException("Receiving `nack` timed out - %s" % (msg,))
@@ -67,6 +104,12 @@ class _FlasherSerial:
                 raise FlasherException("Unknown response: 0x%02X - %s" % (ack, msg))
 
     def cmd(self, cmd, msg=None):
+        """
+        Sends a command and awaits an acknowledgement.
+
+        :param cmd: The command byte
+        :param msg: A message to be shown in raised errors; defaults to `cmd` in hex
+        """
         self.write(_with_checksum(bytes([cmd])))
         if msg is None:
             msg = "0x%02X" % (cmd,)
@@ -117,21 +160,21 @@ class Flasher:
 
     def cmd_get(self):
         self._serial.cmd(0x00, "get")
-        len = self._serial.read_byte() + 1
+        length = self._serial.read_byte() + 1
         version = self._serial.read_byte()
-        cmds = set(self._serial.read(len - 1))
+        cmds = set(self._serial.read(length - 1))
         self._serial.await_ack("end get")
         return version, cmds
 
     def cmd_get_id(self):
         self._serial.cmd(0x02, "get_id")
-        len = self._serial.read_byte() + 1
-        bytes = self._serial.read(len)
-        id = 0
-        for ord, val in enumerate(reversed(bytes)):
-            id |= val << (ord*8)
+        length = self._serial.read_byte() + 1
+        data = self._serial.read(length)
+        id_ = 0
+        for i, val in enumerate(reversed(data)):
+            id_ |= val << (i*8)
         self._serial.await_ack("end get_id")
-        return id
+        return id_
 
     def cmd_write_memory(self, data, addr):
         length = len(data)
