@@ -2,19 +2,6 @@ import serial
 import time
 from . import gpio
 
-_CONF = {
-    'port': serial.device(3),
-    'baud': 115200,
-    'address': 0x08000000,
-    'erase': 0,
-    'write': 0,
-    'verify': 0,
-    'read': 0,
-    'go_addr': -1,
-    'pin_reset': 'PA8',
-    'pin_boot0': 'PA7'
-}
-
 
 def _checksum(data):
     """
@@ -117,16 +104,17 @@ class _FlasherSerial:
 
 
 class Flasher:
-    def __init__(self, conf=None):
-        if conf is None:
-            conf = _CONF
-        self._conf = conf
+    def __init__(self,
+                 port=serial.device(3),
+                 baudrate=115200,
+                 reset='PA8',
+                 boot0='PA7'):
 
-        self._reset = gpio.GPIO(self._conf['pin_reset'])
-        self._boot0 = gpio.GPIO(self._conf['pin_boot0'])
+        self._reset = gpio.GPIO(reset)
+        self._boot0 = gpio.GPIO(boot0)
         self._serial = _FlasherSerial(serial.Serial(
-            port=self._conf['port'],
-            baudrate=self._conf['baud'],
+            port=port,
+            baudrate=baudrate,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_EVEN,
             stopbits=serial.STOPBITS_ONE,
@@ -185,9 +173,7 @@ class Flasher:
         self._serial.write(_with_checksum(bytes([length - 1]) + data))
         self._serial.await_ack("end write_memory")
 
-    def write_memory(self, data, addr=None):
-        if addr is None:
-            addr = self._conf['address']
+    def write_memory(self, data, addr=0x08000000):
         length = len(data)
         print("Length: 0x%2X" % (length,))
         for off in range(0, length, 256):
@@ -205,9 +191,7 @@ class Flasher:
         data = self._serial.read(length)
         return data
 
-    def read_memory(self, length, addr=None):
-        if addr is None:
-            addr = self._conf['address']
+    def read_memory(self, length, addr=0x08000000):
         fragments = []
         print("Length: 0x%2X" % (length,))
         for off in range(0, length, 256):
