@@ -109,10 +109,9 @@ class Flasher:
                  baudrate=115200,
                  reset='PA8',
                  boot0='PA7'):
-
-        self._reset = gpio.GPIO(reset)
-        self._boot0 = gpio.GPIO(boot0)
-        self._serial = _FlasherSerial(serial.Serial(
+        self.reset = gpio.GPIO(reset)
+        self.boot0 = gpio.GPIO(boot0)
+        self.serial = _FlasherSerial(serial.Serial(
             port=port,
             baudrate=baudrate,
             bytesize=serial.EIGHTBITS,
@@ -126,52 +125,52 @@ class Flasher:
             interCharTimeout=None,
         ))
 
-    def reset(self):
-        self._reset.set(False)
+    def do_reset(self):
+        self.reset.set(False)
         time.sleep(0.1)
-        self._reset.set(True)
+        self.reset.set(True)
         time.sleep(0.5)
 
     def init_chip(self):
-        self._boot0.set(True)
-        self.reset()
+        self.boot0.set(True)
+        self.do_reset()
 
-        self._serial.serial.flushInput()
-        self._serial.serial.flushOutput()
+        self.serial.serial.flushInput()
+        self.serial.serial.flushOutput()
 
-        self._serial.write_byte(0x7F)
-        self._serial.await_ack("sync")
+        self.serial.write_byte(0x7F)
+        self.serial.await_ack("sync")
 
     def release_chip(self):
-        self._boot0.set(False)
-        self.reset()
+        self.boot0.set(False)
+        self.do_reset()
 
     def cmd_get(self):
-        self._serial.cmd(0x00, "get")
-        length = self._serial.read_byte() + 1
-        version = self._serial.read_byte()
-        cmds = set(self._serial.read(length - 1))
-        self._serial.await_ack("end get")
+        self.serial.cmd(0x00, "get")
+        length = self.serial.read_byte() + 1
+        version = self.serial.read_byte()
+        cmds = set(self.serial.read(length - 1))
+        self.serial.await_ack("end get")
         return version, cmds
 
     def cmd_get_id(self):
-        self._serial.cmd(0x02, "get_id")
-        length = self._serial.read_byte() + 1
-        data = self._serial.read(length)
+        self.serial.cmd(0x02, "get_id")
+        length = self.serial.read_byte() + 1
+        data = self.serial.read(length)
         id_ = 0
         for i, val in enumerate(reversed(data)):
             id_ |= val << (i*8)
-        self._serial.await_ack("end get_id")
+        self.serial.await_ack("end get_id")
         return id_
 
     def cmd_write_memory(self, data, addr):
         length = len(data)
         assert 1 < length <= 0x100
-        self._serial.cmd(0x31, "write_memory")
-        self._serial.write(_encode_address(addr))
-        self._serial.await_ack("write_memory: address")
-        self._serial.write(_with_checksum(bytes([length - 1]) + data))
-        self._serial.await_ack("end write_memory")
+        self.serial.cmd(0x31, "write_memory")
+        self.serial.write(_encode_address(addr))
+        self.serial.await_ack("write_memory: address")
+        self.serial.write(_with_checksum(bytes([length - 1]) + data))
+        self.serial.await_ack("end write_memory")
 
     def write_memory(self, data, addr=0x08000000):
         length = len(data)
@@ -183,12 +182,12 @@ class Flasher:
 
     def cmd_read_memory(self, length, addr):
         assert 1 < length <= 0x100
-        self._serial.cmd(0x11, "read_memory")
-        self._serial.write(_encode_address(addr))
-        self._serial.await_ack("read_memory: address")
-        self._serial.write(_with_checksum(bytes([length - 1])))
-        self._serial.await_ack("read_memory: length")
-        data = self._serial.read(length)
+        self.serial.cmd(0x11, "read_memory")
+        self.serial.write(_encode_address(addr))
+        self.serial.await_ack("read_memory: address")
+        self.serial.write(_with_checksum(bytes([length - 1])))
+        self.serial.await_ack("read_memory: length")
+        data = self.serial.read(length)
         return data
 
     def read_memory(self, length, addr=0x08000000):
