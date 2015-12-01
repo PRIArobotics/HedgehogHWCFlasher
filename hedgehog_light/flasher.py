@@ -234,6 +234,23 @@ class Flasher:
         data = self.serial.read(length)
         return data
 
+    def cmd_go(self, addr=0x08000000):
+        """
+        0x21 - Go
+        Re-Initializes hardware & stack pointer, and jump to the given address.
+
+        NOTE: The address must point to either RAM or Flash!
+        NOTE: This method will raise an exception if the memory is read protected!
+        NOTE: The case of a second NACK for read protection is not handled!
+
+        :param length: the number of bytes to read: 1 < length < 256
+        :param addr: the address to read from
+        :return: data
+        """
+        self.serial.cmd(0x21, "go")
+        self.serial.write(_encode_address(addr))
+        self.serial.await_ack("go: address")
+
     def cmd_write_memory(self, data, addr):
         """
         0x31 - Write Memory
@@ -255,6 +272,59 @@ class Flasher:
         self.serial.await_ack("write_memory: address")
         self.serial.write(_with_checksum(bytes([length - 1]) + data))
         self.serial.await_ack("end write_memory")
+
+    def cmd_erase_memory(self, pages=None):
+        """
+        0x43 - Erase Memory
+        Erases all or up to 255 pages of memory.
+
+        NOTE: Erasing write-protected memory is silently ignored!
+
+        :param pages: `None` for global erase, or a list with 1 <= len(pages) <= 255
+        """
+        assert pages is None or 1 <= len(pages) <= 0xFF
+        self.serial.cmd(0x43, "erase_memory")
+        if pages is None:
+            self.serial.write(_with_checksum([0xFF]))
+        else:
+            self.serial.write(_with_checksum([len(pages) - 1] + pages))
+        self.serial.await_ack("end erase_memory")
+
+    def cmd_extended_erase_memory(self, pages=None, mode='pages'):
+        """
+        0x44 - Extended Erase Memory
+        Erases specified pages of memory, or mass erases memory banks.
+
+        NOTE: Erasing write-protected memory is silently ignored!
+        NOTE: The maximum number of pages to delete is device dependent!
+
+        :param pages: `None` for special erase, or a list with 1 <= len(pages)
+        :param mode: 'pages' to erase specified pages
+                     'global' for global mass erase
+                     'bank_1' for bank 1 mass erase
+                     'bank_2' for bank 2 mass erase
+        """
+        def _encode_page(page):
+            return bytes([(page >> i) & 0xFF for i in reversed(range(0, 16, 8))])
+
+        codes = {
+            'pages': -1,
+            'global': 0xFFFF,
+            'bank_1': 0xFFFE,
+            'bank_2': 0xFFFD,
+        }
+        assert mode in codes
+        code = codes[mode]
+        assert (code == -1) == (pages is not None)
+        assert pages is None or 1 <= len(pages) <= 0xFFF0
+        self.serial.cmd(0x44, "extended_erase_memory")
+        if code == -1:
+            data = b''.join([_encode_page(page)
+                             for page in [len(pages) - 1] + pages])
+            self.serial.write(_with_checksum(data))
+        else:
+            self.serial.write(_with_checksum(_encode_page(code)))
+        self.serial.await_ack("end extended_erase_memory")
 
     def read_memory(self, length, addr=0x08000000):
         """
