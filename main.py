@@ -8,14 +8,14 @@ if __name__ == "__main__":
     try:
         flasher.init_chip()
         version, cmds = flasher.cmd_get()
-        id = flasher.cmd_get_id()
+        id_ = flasher.cmd_get_id()
 
         print("Bootloader version:", hex(version))
         print("Commands:", [hex(cmd) for cmd in cmds])
         print("Extended erase:", 0x44 in cmds)
-        print("ID:", hex(id))
+        print("ID:", hex(id_))
 
-        bin = open(argv[0], 'rb').read()
-        flasher.write_memory(bin)
+        bin_ = open(argv[0], 'rb').read()
+        flasher.write_memory(bin_)
     finally:
         flasher.release_chip()
