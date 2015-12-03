@@ -16,6 +16,8 @@ if __name__ == "__main__":
         print("ID:", hex(id_))
 
         bin_ = open(argv[0], 'rb').read()
+
+        flasher.cmd_extended_erase_memory(mode='global')
         flasher.write_memory(bin_)
     finally:
         flasher.release_chip()
