@@ -58,7 +58,7 @@ class GPIO:
 
         :return: `True` if the file contains `'1'`, `False` otherwise
         """
-        return _read(self.data_file) == '1'
+        return _read(self.data_file).strip() == '1'
 
     def write(self, file, value):
         """
