@@ -343,7 +343,7 @@ class Flasher:
         print("Length: 0x%2X" % (length,))
         for off in range(0, length, 256):
             end = min(length, off + 256)
-            print("Read data[0x%2X:0x%2X]..." % (off, end))
+            print("Read data[0x%04X:0x%04X]..." % (off, end))
             fragment = self.cmd_read_memory(end - off, addr + off)
             fragments.append(fragment)
         return b''.join(fragments)
@@ -368,5 +368,5 @@ class Flasher:
         print("Length: 0x%2X" % (length,))
         for off in range(0, length, 256):
             slice_ = data[off:off + 256]
-            print("Write data[0x%2X:0x%2X]..." % (off, off + len(slice_)))
+            print("Write data[0x%04X:0x%04X]..." % (off, off + len(slice_)))
             self.cmd_write_memory(slice_, addr + off)
