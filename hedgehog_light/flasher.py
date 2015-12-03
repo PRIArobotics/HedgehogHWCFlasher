@@ -27,6 +27,16 @@ def _with_checksum(data):
     return data + bytes([_checksum(data)])
 
 
+def _single_checksum(byte):
+    """
+    Returns a `bytes` object consisting of the data byte and its complement..
+
+    :param byte: a byte
+    :return: a new `bytes` object consisting of the data byte and its complement
+    """
+    return bytes([byte, byte ^ 0xFF])
+
+
 def _encode_address(addr):
     """
     Returns a `bytes` object consisting of the 4 byte address, MSB first,
@@ -97,7 +107,7 @@ class _FlasherSerial:
         :param cmd: The command byte
         :param msg: A message to be shown in raised errors; defaults to `cmd` in hex
         """
-        self.write(bytes([cmd, cmd ^ 0xFF]))
+        self.write(_single_checksum(cmd))
         if msg is None:
             msg = "0x%02X" % (cmd,)
         self.await_ack("cmd %s" % (msg,))
@@ -229,7 +239,7 @@ class Flasher:
         self.serial.cmd(0x11, "read_memory")
         self.serial.write(_encode_address(addr))
         self.serial.await_ack("read_memory: address")
-        self.serial.write(_with_checksum(bytes([length - 1])))
+        self.serial.write(_single_checksum(length - 1))
         self.serial.await_ack("read_memory: length")
         data = self.serial.read(length)
         return data
