@@ -97,7 +97,7 @@ class _FlasherSerial:
         :param cmd: The command byte
         :param msg: A message to be shown in raised errors; defaults to `cmd` in hex
         """
-        self.write(_with_checksum(bytes([cmd])))
+        self.write(bytes([cmd, cmd ^ 0xFF]))
         if msg is None:
             msg = "0x%02X" % (cmd,)
         self.await_ack("cmd %s" % (msg,))
