@@ -1,5 +1,5 @@
 import sys
-from hedgehog_light.flasher import Flasher
+from hedgehog_light.flasher import Flasher, FlasherException
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
@@ -19,5 +19,8 @@ if __name__ == "__main__":
 
         flasher.cmd_extended_erase_memory(mode='global')
         flasher.write_memory(bin_)
+        verify = flasher.read_memory(len(bin_))
+        if bin_ != verify:
+            raise FlasherException('Verify failed')
     finally:
         flasher.release_chip()
