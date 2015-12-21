@@ -253,9 +253,7 @@ class Flasher:
         NOTE: This method will raise an exception if the memory is read protected!
         NOTE: The case of a second NACK for read protection is not handled!
 
-        :param length: the number of bytes to read: 1 < length < 256
-        :param addr: the address to read from
-        :return: data
+        :param addr: the address to jump to
         """
         self.serial.cmd(0x21, "go")
         self.serial.write(_encode_address(addr))
