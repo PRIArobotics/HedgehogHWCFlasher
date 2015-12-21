@@ -1,5 +1,5 @@
 import sys
-from hedgehog_light.flasher import Flasher, FlasherException
+from hedgehog_light.stm32flasher.flasher import Flasher, FlasherException
 
 argv = sys.argv[1:]
 
