@@ -13,5 +13,6 @@ setup(
 
     packages=['hedgehog_light'],
     install_requires=['pyserial>=2.7'],
+    scripts=['bin/flash.sh'],
 )
 
