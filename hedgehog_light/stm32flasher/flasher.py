@@ -1,6 +1,6 @@
 import serial
 import time
-from . import gpio
+from .gpio import GPIO
 
 
 def _checksum(data):
@@ -128,8 +128,8 @@ class Flasher:
                  baudrate=115200,
                  reset='PA8',
                  boot0='PA7'):
-        self.reset = gpio.GPIO(reset)
-        self.boot0 = gpio.GPIO(boot0)
+        self.reset = GPIO(reset)
+        self.boot0 = GPIO(boot0)
         self.serial = _FlasherSerial(serial.Serial(
             port=port,
             baudrate=baudrate,
