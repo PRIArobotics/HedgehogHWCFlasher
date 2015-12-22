@@ -14,6 +14,6 @@ setup(
     namespace_packages = ['hedgehog_light'],
     packages=['hedgehog_light', 'hedgehog_light.stm32flasher'],
     install_requires=['pyserial>=2.7'],
-    scripts=['bin/stm32flasher.sh'],
+    scripts=['bin/stm32flasher'],
 )
 
