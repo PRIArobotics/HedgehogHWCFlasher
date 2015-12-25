@@ -1,6 +1,8 @@
 #!/bin/bash
 
-HERE=`dirname $0`
+HERE="$0"
+HERE=`readlink -f "$HERE"`
+HERE=`dirname "$HERE"`
 
 . "$HERE/activate"
 python -m hedgehog_light.stm32flasher "$1"
