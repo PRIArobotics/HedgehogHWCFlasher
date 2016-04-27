@@ -1,116 +1,7 @@
 import serial
 import time
 from .gpio import GPIO
-
-
-def _checksum(data):
-    """
-    Calculates the checksum of some data bytes according to the STM32
-    bootloader USART protocol.
-
-    :param data: a `bytes` object
-    :return: the XOR of all the bytes, i.e. a number between 0x00 and 0xFF
-    """
-    checksum = 0
-    for byte in data:
-        checksum ^= byte
-    return checksum
-
-
-def _with_checksum(data):
-    """
-    Appends the checksum (see _checksum) to the data and returns it.
-
-    :param data: a `bytes` object
-    :return: a new `bytes` object with the checksum appended
-    """
-    return data + bytes([_checksum(data)])
-
-
-def _single_checksum(byte):
-    """
-    Returns a `bytes` object consisting of the data byte and its complement..
-
-    :param byte: a byte
-    :return: a new `bytes` object consisting of the data byte and its complement
-    """
-    return bytes([byte, byte ^ 0xFF])
-
-
-def _encode_address(addr):
-    """
-    Returns a `bytes` object consisting of the 4 byte address, MSB first,
-    followed by the address' checksum.
-
-    :param addr: The 32 bit address
-    :return: a `bytes` object consisting of 5 bytes
-    """
-    data = bytes([(addr >> i) & 0xFF for i in reversed(range(0, 32, 8))])
-    return _with_checksum(data)
-
-
-class FlasherException(Exception):
-    """
-    This exception is thrown when the STM32 bootloader USART protocol is not
-    followed.
-    """
-    pass
-
-
-class _FlasherSerial:
-    """
-    Encapsulates common functions for the STM32 bootloader USART protocol:
-    - Awaiting acknowledgement
-    - sending a command, including checksum & acknowledgement
-    - wrappers around read & write of the underlying `Serial` object
-    """
-
-    def __init__(self, serial_):
-        self.serial = serial_
-
-    def write(self, data):
-        self.serial.write(data)
-
-    def read(self, size=1):
-        return self.serial.read(size)
-
-    def write_byte(self, byte):
-        self.write(bytes([byte]))
-
-    def read_byte(self):
-        result = self.read()
-        return None if len(result) == 0 else result[0]
-
-    def await_ack(self, msg=""):
-        """
-        Returns on a successful acknowledgement, otherwise raises a
-        `FlasherException`.
-
-        :param msg: A message to be shown in raised errors
-        """
-        try:
-            ack = self.read_byte()
-        except Exception as ex:
-            raise FlasherException("Reading `ack` failed - %s: %s" % (msg, str(ex))) from ex
-        else:
-            if ack is None:
-                raise FlasherException("Receiving `nack` timed out - %s" % (msg,))
-            if ack == 0x1F:
-                raise FlasherException("Received `nack` - %s" % (msg,))
-            elif ack != 0x79:
-                raise FlasherException("Unknown response: 0x%02X - %s" % (ack, msg))
-
-    def cmd(self, cmd, msg=None):
-        """
-        Sends a command and awaits an acknowledgement.
-
-        :param cmd: The command byte
-        :param msg: A message to be shown in raised errors; defaults to `cmd` in hex
-        """
-        self.write(_single_checksum(cmd))
-        if msg is None:
-            msg = "0x%02X" % (cmd,)
-        self.await_ack("cmd %s" % (msg,))
+from .flasher_serial import FlasherSerial, FlasherSerialException
 
 
 class Flasher:
@@ -130,7 +21,7 @@ class Flasher:
                  boot0='PA7'):
         self.reset = GPIO(reset)
         self.boot0 = GPIO(boot0)
-        self.serial = _FlasherSerial(serial.Serial(
+        self.serial = FlasherSerial(serial.Serial(
             port=port,
             baudrate=baudrate,
             bytesize=serial.EIGHTBITS,
@@ -237,9 +128,9 @@ class Flasher:
         """
         assert 1 < length <= 0x100
         self.serial.cmd(0x11, "read_memory")
-        self.serial.write(_encode_address(addr))
+        self.serial.write(self.serial.encode_address(addr))
         self.serial.await_ack("read_memory: address")
-        self.serial.write(_single_checksum(length - 1))
+        self.serial.write(self.serial.single_checksum(length - 1))
         self.serial.await_ack("read_memory: length")
         data = self.serial.read(length)
         return data
@@ -256,7 +147,7 @@ class Flasher:
         :param addr: the address to jump to
         """
         self.serial.cmd(0x21, "go")
-        self.serial.write(_encode_address(addr))
+        self.serial.write(self.serial.encode_address(addr))
         self.serial.await_ack("go: address")
 
     def cmd_write_memory(self, data, addr):
@@ -276,9 +167,9 @@ class Flasher:
         length = len(data)
         assert 1 < length <= 0x100
         self.serial.cmd(0x31, "write_memory")
-        self.serial.write(_encode_address(addr))
+        self.serial.write(self.serial.encode_address(addr))
         self.serial.await_ack("write_memory: address")
-        self.serial.write(_with_checksum(bytes([length - 1]) + data))
+        self.serial.write(self.serial.with_checksum(bytes([length - 1]) + data))
         self.serial.await_ack("end write_memory")
 
     def cmd_erase_memory(self, pages=None):
@@ -293,9 +184,9 @@ class Flasher:
         assert pages is None or 1 <= len(pages) <= 0xFF
         self.serial.cmd(0x43, "erase_memory")
         if pages is None:
-            self.serial.write(_with_checksum([0xFF]))
+            self.serial.write(self.serial.with_checksum([0xFF]))
         else:
-            self.serial.write(_with_checksum([len(pages) - 1] + pages))
+            self.serial.write(self.serial.with_checksum([len(pages) - 1] + pages))
         self.serial.await_ack("end erase_memory")
 
     def cmd_extended_erase_memory(self, pages=None, mode='pages'):
@@ -312,7 +203,7 @@ class Flasher:
                      'bank_1' for bank 1 mass erase
                      'bank_2' for bank 2 mass erase
         """
-        def _encode_page(page):
+        def encode_page(page):
             return bytes([(page >> i) & 0xFF for i in reversed(range(0, 16, 8))])
 
         codes = {
@@ -327,11 +218,11 @@ class Flasher:
         assert pages is None or 1 <= len(pages) <= 0xFFF0
         self.serial.cmd(0x44, "extended_erase_memory")
         if code == -1:
-            data = b''.join([_encode_page(page)
+            data = b''.join([encode_page(page)
                              for page in [len(pages) - 1] + pages])
-            self.serial.write(_with_checksum(data))
+            self.serial.write(self.serial.with_checksum(data))
         else:
-            self.serial.write(_with_checksum(_encode_page(code)))
+            self.serial.write(self.serial.with_checksum(encode_page(code)))
         self.serial.await_ack("end extended_erase_memory")
 
     def read_memory(self, length, addr=0x08000000):
@@ -378,3 +269,34 @@ class Flasher:
             slice_ = data[off:off + 256]
             print("Write data[0x%04X:0x%04X]..." % (off, off + len(slice_)))
             self.cmd_write_memory(slice_, addr + off)
+
+
+def main():
+    import sys
+
+    argv = sys.argv[1:]
+
+    flasher = Flasher()
+    try:
+        flasher.init_chip()
+        version, cmds = flasher.cmd_get()
+        id_ = flasher.cmd_get_id()
+
+        print("Bootloader version:", hex(version))
+        print("Commands:", [hex(cmd) for cmd in cmds])
+        print("Extended erase:", 0x44 in cmds)
+        print("ID:", hex(id_))
+
+        bin_ = open(argv[0], 'rb').read()
+
+        flasher.cmd_extended_erase_memory(mode='global')
+        flasher.write_memory(bin_)
+        verify = flasher.read_memory(len(bin_))
+        if bin_ != verify:
+            raise FlasherSerialException('Verify failed')
+    finally:
+        flasher.release_chip()
+
+
+if __name__ == '__main__':
+    main()
