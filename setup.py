@@ -1,19 +1,66 @@
-from setuptools import setup
+"""A setuptools based setup module.
 
-from hedgehog_light import stm32flasher
+See:
+https://packaging.python.org/en/latest/distributing.html
+https://github.com/pypa/sampleproject
+"""
+
+# Always prefer setuptools over distutils
+from setuptools import setup, find_packages
+# To use a consistent encoding
+from codecs import open
+from os import path
+
+here = path.abspath(path.dirname(__file__))
+
+# Get the long description from the README file
+with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
-    name="stm32flasher",
-    description="STM32 USART Flasher",
-    version=stm32flasher.__version__,
-    license="AGPLv3",
-    url="https://github.com/PRIArobotics/STM32Flasher",
+    name='hedgehog-hwc-flasher',
+    version='0.0.0',
+    description='Tool for flashing the Hedgehog\'s HWC',
+    long_description=long_description,
+    url="https://github.com/PRIArobotics/HedgehogHWCFlasher",
     author="Clemens Koza",
     author_email="koza@pria.at",
+    license="AGPLv3+",
 
-    namespace_packages = ['hedgehog_light'],
-    packages=['hedgehog_light', 'hedgehog_light.stm32flasher'],
-    install_requires=['pyserial>=2.7'],
-    scripts=['bin/stm32flasher'],
+    # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
+    classifiers=[
+        'Development Status :: 1 - Planning',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development',
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+        'Programming Language :: Python :: 3',
+    ],
+
+    keywords='hedgehog robotics stm32 microcontroller',
+
+    # You can just specify the packages manually here if your project is
+    # simple. Or you can use find_packages().
+    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+
+    # List run-time dependencies here.  These will be installed by pip when
+    # your project is installed. For an analysis of "install_requires" vs pip's
+    # requirements files see:
+    # https://packaging.python.org/en/latest/requirements.html
+    install_requires=['pyserial'],
+
+    # You can install these using the following syntax, for example:
+    # $ pip install -e .[dev,test]
+    extras_require={
+        # 'dev': ['invoke'],
+    },
+
+    # package_data={
+    #     'proto': ['*.proto'],
+    # },
+
+    entry_points={
+        'console_scripts': [
+            'hedgehog-hwc-flasher = hedgehog.flasher:main',
+        ],
+    },
 )
-
