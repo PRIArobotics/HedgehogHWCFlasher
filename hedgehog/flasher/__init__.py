@@ -15,7 +15,7 @@ class Flasher:
     `RESET` and `BOOT0` pins to enable the bootloader.
     """
     def __init__(self,
-                 port=serial.device(3),
+                 port='/dev/ttyS3',
                  baudrate=115200,
                  reset='PA8',
                  boot0='PA7'):
