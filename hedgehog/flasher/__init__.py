@@ -17,8 +17,8 @@ class Flasher:
     def __init__(self,
                  port='/dev/ttyS3',
                  baudrate=115200,
-                 reset='PA8',
-                 boot0='PA7'):
+                 reset='PA7',
+                 boot0='PA8'):
         self.reset = GPIO(reset)
         self.boot0 = GPIO(boot0)
         self.serial = FlasherSerial(serial.Serial(
