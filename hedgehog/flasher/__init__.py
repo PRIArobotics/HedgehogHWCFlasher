@@ -1,6 +1,6 @@
 import serial
 import time
-from .gpio import GPIO
+from hedgehog.periphery import GPIO, SERIAL, NRST_PIN, BOOT0_PIN
 from .flasher_serial import FlasherSerial, FlasherSerialException
 
 
@@ -15,12 +15,15 @@ class Flasher:
     `RESET` and `BOOT0` pins to enable the bootloader.
     """
     def __init__(self,
-                 port='/dev/ttyS3',
+                 port=SERIAL,
                  baudrate=115200,
-                 reset='PA7',
-                 boot0='PA8'):
+                 reset=NRST_PIN,
+                 boot0=BOOT0_PIN):
         self.reset = GPIO(reset)
         self.boot0 = GPIO(boot0)
+        self.reset.setup(GPIO.OUT)
+        self.boot0.setup(GPIO.OUT)
+
         self.serial = FlasherSerial(serial.Serial(
             port=port,
             baudrate=baudrate,
