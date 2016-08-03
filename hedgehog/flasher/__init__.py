@@ -299,6 +299,7 @@ def main():
             raise FlasherSerialException('Verify failed')
     finally:
         flasher.release_chip()
+        GPIO.cleanup()
 
 
 if __name__ == '__main__':
