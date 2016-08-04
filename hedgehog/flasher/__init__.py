@@ -1,6 +1,6 @@
 import serial
 import time
-from hedgehog.periphery import GPIO, SERIAL, NRST_PIN, BOOT0_PIN
+from hedgehog.platform import Controller
 from .flasher_serial import FlasherSerial, FlasherSerialException
 
 
@@ -14,39 +14,9 @@ class Flasher:
     In addition to the USART protocol, this class also handles setting the
     `RESET` and `BOOT0` pins to enable the bootloader.
     """
-    def __init__(self,
-                 port=SERIAL,
-                 baudrate=115200,
-                 reset=NRST_PIN,
-                 boot0=BOOT0_PIN):
-        self.reset = GPIO(reset)
-        self.boot0 = GPIO(boot0)
-        self.reset.setup(GPIO.OUT)
-        self.boot0.setup(GPIO.OUT)
-
-        self.serial = FlasherSerial(serial.Serial(
-            port=port,
-            baudrate=baudrate,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_EVEN,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=5,
-            xonxoff=False,
-            rtscts=False,
-            writeTimeout=None,
-            dsrdtr=False,
-            interCharTimeout=None,
-        ))
-
-    def do_reset(self):
-        """
-        Pulls the `RESET` pin to `0` for 0.1 seconds, then blocks for another
-        0.5 seconds.
-        """
-        self.reset.set(False)
-        time.sleep(0.1)
-        self.reset.set(True)
-        time.sleep(0.5)
+    def __init__(self):
+        self.controller = Controller()
+        self.serial = FlasherSerial(self.controller.serial)
 
     def init_chip(self):
         """
@@ -54,11 +24,7 @@ class Flasher:
         serial's buffers, and starts the communication by sending the initial
         `0x7F` byte and waiting for acknowledgement.
         """
-        self.boot0.set(True)
-        self.do_reset()
-
-        self.serial.serial.flushInput()
-        self.serial.serial.flushOutput()
+        self.controller.reset(True, True)
 
         self.serial.write_byte(0x7F)
         self.serial.await_ack("sync")
@@ -67,8 +33,7 @@ class Flasher:
         """
         Pulls the `BOOT0` pin to `0`, and does a reset.
         """
-        self.boot0.set(False)
-        self.do_reset()
+        self.controller.reset(True, False)
 
     def cmd_get(self):
         """
@@ -299,7 +264,7 @@ def main():
             raise FlasherSerialException('Verify failed')
     finally:
         flasher.release_chip()
-        GPIO.cleanup()
+        flasher.controller.cleanup()
 
 
 if __name__ == '__main__':
